@@ -1,4 +1,3 @@
-```md
 # dkron-with-auth
 
 **Dkron – Distributed, fault-tolerant job scheduling system with optional Web UI authentication.**
@@ -137,5 +136,4 @@ When session auth is enabled:
 This project is a fork of the original Dkron project.
 It is **not officially affiliated** with the upstream maintainers.
 
-```
 
