@@ -1,24 +1,35 @@
-FROM golang:1.24
-LABEL maintainer="Victor Castell <0x@vcastellm.xyz>"
+# ---------- Build stage ----------
+FROM golang:1.24-alpine AS build
 
-EXPOSE 8080 8946
+WORKDIR /src
 
-RUN mkdir -p /app
-WORKDIR /app
+# Install git for private/public modules
+RUN apk add --no-cache git
 
-ENV GOCACHE=/root/.cache/go-build
-ENV GOMODCACHE=/root/.cache/go-build
-ENV GO111MODULE=on
-
-# Leverage build cache by copying go.mod and go.sum first
+# Copy go mod files first for better caching
 COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/root/.cache/go-build go mod download
-RUN go mod verify
+RUN go mod download
 
-# Copy the rest of the source code
+# Copy the rest of the source
 COPY . .
 
-RUN go install ./builtin/...
-RUN go build -tags=hashicorpmetrics -o /go/bin/dkron main.go
+# Build static binary
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -o dkron-with-auth main.go
 
-CMD ["dkron"]
+
+# ---------- Runtime stage ----------
+FROM alpine:3.19
+
+WORKDIR /app
+
+# (Optional but recommended) CA certs for HTTPS calls (auth, OIDC, APIs)
+RUN apk add --no-cache ca-certificates
+
+COPY --from=build /src/dkron-with-auth /usr/local/bin/dkron-with-auth
+COPY --from=build /src/config /app/config
+
+EXPOSE 8080 8946 6868
+
+ENTRYPOINT ["dkron-with-auth","agent"]
+CMD ["--server","--bootstrap-expect","1"]

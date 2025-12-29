@@ -183,6 +183,13 @@ type Config struct {
 
 	// OpenTelemetryEndpoint is the gRPC endpoint to send OpenTelemetry traces to. If empty, no traces will be sent.
 	OpenTelemetryEndpoint string `mapstructure:"otel-endpoint"`
+
+	UIAuthEnabled    bool          `mapstructure:"ui-auth-enabled"`
+	UIAuthUsername   string        `mapstructure:"ui-auth-username"`
+	UIAuthPassword   string        `mapstructure:"ui-auth-password"`
+	UISessionEnabled bool          `mapstructure:"ui-session-enabled"`
+	UISessionTTL     time.Duration `mapstructure:"ui-session-ttl"`
+	UISessionSecret  string        `mapstructure:"ui-session-secret"`
 }
 
 // DefaultBindPort is the default port that dkron will use for Serf communication
@@ -220,6 +227,9 @@ func DefaultConfig() *Config {
 		RaftMultiplier:       1,
 		SerfReconnectTimeout: "24h",
 		UI:                   true,
+		UIAuthEnabled:        false,
+		UISessionEnabled:     false,
+		UISessionTTL:         time.Hour,
 	}
 }
 
@@ -298,6 +308,19 @@ should share a local LAN connection.`)
 		`Specifies the region the Dkron agent is a member of. A region typically maps 
 to a geographic region, for example us, with potentially multiple zones, which 
 map to datacenters such as us-west and us-east`)
+
+	cmdFlags.Bool("ui-auth-enabled", c.UIAuthEnabled,
+		"Enable HTTP Basic Auth for the web UI only")
+	cmdFlags.String("ui-auth-username", c.UIAuthUsername,
+		"Username for UI Basic Auth")
+	cmdFlags.String("ui-auth-password", c.UIAuthPassword,
+		"Password for UI Basic Auth")
+	cmdFlags.Bool("ui-session-enabled", c.UISessionEnabled,
+		"Enable cookie-based session auth for the web UI")
+	cmdFlags.Duration("ui-session-ttl", c.UISessionTTL,
+		"TTL for UI session cookie (e.g. 1h, 30m)")
+	cmdFlags.String("ui-session-secret", c.UISessionSecret,
+		"Secret for signing UI session cookie")
 	cmdFlags.String("serf-reconnect-timeout", c.SerfReconnectTimeout,
 		`This is the amount of time to attempt to reconnect to a failed node before 
 giving up and considering it completely gone. In Kubernetes, you might need 
@@ -421,7 +444,7 @@ func normalizeAdvertise(addr string, bind string, defport int, dev bool) (string
 	if host, _, err := net.SplitHostPort(bind); err == nil {
 		bindHost = host
 	}
-	
+
 	// TODO: Revisit this as the lookup doesn't work with IP addresses
 	ips, err := net.LookupIP(bindHost)
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/distribworks/dkron/v4/dkron"
 	"github.com/distribworks/dkron/v4/logging"
@@ -63,6 +64,46 @@ func initConfig() error {
 
 	if err := viper.Unmarshal(config); err != nil {
 		return fmt.Errorf("config: Error unmarshalling config: %s", err)
+	}
+
+	// Merge UI auth/session config from config/auth.yaml if present
+	authV := viper.New()
+	// Try ./config/auth.yaml relative to current working dir
+	authV.SetConfigFile("./config/auth.yaml")
+	errAuth := authV.ReadInConfig()
+	if errAuth != nil {
+		// Fallback to ../config/auth.yaml (repo-level config)
+		authV = viper.New()
+		authV.SetConfigFile("../config/auth.yaml")
+		errAuth = authV.ReadInConfig()
+	}
+	if errAuth == nil {
+		// Only override fields that are explicitly set in auth.yaml
+		if authV.IsSet("ui-auth-enabled") {
+			config.UIAuthEnabled = authV.GetBool("ui-auth-enabled")
+		}
+		if authV.IsSet("ui-auth-username") {
+			config.UIAuthUsername = authV.GetString("ui-auth-username")
+		}
+		if authV.IsSet("ui-auth-password") {
+			config.UIAuthPassword = authV.GetString("ui-auth-password")
+		}
+		if authV.IsSet("ui-session-enabled") {
+			config.UISessionEnabled = authV.GetBool("ui-session-enabled")
+		}
+		if authV.IsSet("ui-session-ttl") {
+			ttlStr := authV.GetString("ui-session-ttl")
+			if d, err := time.ParseDuration(ttlStr); err == nil {
+				config.UISessionTTL = d
+			} else {
+				logrus.WithError(err).Warn("config: Invalid ui-session-ttl, keeping previous value")
+			}
+		}
+		if authV.IsSet("ui-session-secret") {
+			config.UISessionSecret = authV.GetString("ui-session-secret")
+		}
+	} else {
+		logrus.WithError(errAuth).Info("config: auth.yaml not found, using defaults/flags for UI auth")
 	}
 
 	cliTags := viper.GetStringSlice("tag")
