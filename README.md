@@ -1,107 +1,141 @@
+```md
 # dkron-with-auth
 
-This fork of Dkron adds an optional, lightweight authentication layer for the Web UI while keeping the server, CLI and API compatible with the original flows by default.
+**Dkron – Distributed, fault-tolerant job scheduling system with optional Web UI authentication.**
 
-Highlights:
-- UI-only auth with HMAC-signed, TTL session cookie
-- Toggleable via configuration; defaults to original OSS behavior
-- No changes to API routes, CLI, or agents unless you enable UI auth
+This repository is a community fork of Dkron that adds a **lightweight, optional authentication layer for the Web UI**, while keeping the **server, CLI, agents, and API fully compatible with upstream behavior by default**.
+
+---
+
+## Overview
+
+This fork introduces **UI-only authentication** that can be enabled via configuration without impacting existing job execution or automation workflows.
+
+**Key properties:**
+- Authentication applies **only to the Web UI**
+- Disabled by default (matches upstream OSS behavior)
+- No API, CLI, or agent changes unless explicitly enabled
+
+---
+
+## Highlights
+
+- UI-only authentication using **HMAC-signed session cookies**
+- Configurable and **opt-in**
+- Session TTL support
+- No breaking changes to existing flows
+
+---
 
 ## UI Auth Modes
-- Disabled (default): `ui-auth-enabled: false` → UI is open as in upstream OSS
-- Session auth: `ui-auth-enabled: true` and `ui-session-enabled: true` → UI is protected; login sets `dkron_ui_session` cookie with TTL
+
+- **Disabled (default)**  
+  `ui-auth-enabled: false`  
+  → UI remains open, identical to upstream behavior
+
+- **Session authentication**  
+```
+
+ui-auth-enabled: true
+ui-session-enabled: true
+
+```
+→ UI requires login; a signed `dkron_ui_session` cookie is issued with a TTL
+
+---
+
+## Default Credentials ⚠️
+
+When UI authentication is enabled, the **default credentials are**:
+
+- **Username:** `admin`  
+- **Password:** `secret`
+
+> ⚠️ These defaults are provided for **local development only** and **must be changed before any non-local or shared deployment**.
+
+---
 
 ## Configuration
-Place UI auth settings in `config/auth.yaml` (or `dkron/config/auth.yaml`). Only defined keys are applied.
+
+Credentials and session settings are configured in:
+
+```
+
+config/auth.yaml
+
+````
 
 Example:
-```
+
+```yaml
 ui-auth-enabled: true
 ui-auth-username: admin
-ui-auth-password: secret
+ui-auth-password: change-me
 ui-session-enabled: true
 ui-session-ttl: 15m
-ui-session-secret: devsecret
-```
+ui-session-secret: replace-this-secret
+````
 
-Notes:
-- `ui-auth-enabled: false` restores original UI behavior (no auth)
-- `ui-session-ttl` uses Go duration format (e.g., `10m`, `1h`)
-- Session cookie is `HttpOnly` and signed with `ui-session-secret`
+### Notes
 
-## Run
-Minimal (reads `auth.yaml`):
-```
+* Setting `ui-auth-enabled: false` restores original UI behavior
+* `ui-session-ttl` uses Go duration format (e.g. `10m`, `1h`)
+* Session cookie is `HttpOnly` and HMAC-signed using `ui-session-secret`
+
+---
+
+## Running
+
+Minimal example (reads `auth.yaml`):
+
+```bash
 go run . agent --server --bootstrap-expect 1
 ```
 
 Access the UI:
-- `http://localhost:8080/ui/`
-- When session auth is enabled, a login page is shown; successful login sets the cookie and reloads the requested route
 
-## Security
-- UI session cookie is HMAC-signed and expires according to `ui-session-ttl`
-- Consider adding `Secure` and `SameSite` attributes if serving over HTTPS
-- This auth layer protects UI pages only; use ACLs/Dkron Pro for API authorization
+* `http://localhost:8080/ui/`
+
+When session auth is enabled:
+
+* A login page is shown
+* Successful login sets a session cookie
+* User is redirected back to the originally requested UI route
+
+---
+
+## Security Notes
+
+* UI session cookies are HMAC-signed and time-bound
+* For HTTPS deployments, consider enabling:
+
+  * `Secure`
+  * `SameSite` attributes
+* This feature **only protects UI routes**
+* API authorization is unchanged; use ACLs or enterprise features if required
+
+---
 
 ## Compatibility
-- API, CLI and agent behavior unchanged unless you set `ui-auth-enabled: true`
-- Deep-links to UI routes work; missing/invalid cookie shows the login page and returns to the original route after login
 
-## Acknowledgements
-- Based on the upstream Dkron project by Distribworks
+* API, CLI, and agent behavior remain unchanged
+* Existing deep links continue to work
+* Invalid or missing UI session redirects to login, then returns to the original route
+
+---
 
 ## License
-- Licensed under the GNU Lesser General Public License v3.0 (LGPL-3.0)
-- See `LICENSE` for the full text
-- Starts Mailpit (simulating the CI service container)
-- Runs tests with the same configuration as GitHub Actions
-- Provides clear pass/fail results
-- Allows you to inspect emails in the Mailpit UI
 
-See [.github/TESTING.md](.github/TESTING.md) for more information about CI testing.
+* Licensed under the **GNU Lesser General Public License v3.0 (LGPL-3.0)**
+* This repository contains modifications to an LGPL-licensed project
+* See `LICENSE` for full terms
 
-### Frontend development
+---
 
-Dkron dashboard is built using [React Admin](https://marmelab.com/react-admin/) as a single page application.
+## Attribution
 
-To start developing the dashboard enter the `ui` directory and run `npm install` to get the frontend dependencies and
-then start the local server with `npm start` it should start a new local web server and open a new browser window
-serving de web ui.
+This project is a fork of the original Dkron project.
+It is **not officially affiliated** with the upstream maintainers.
 
-Make your changes to the code, then run `make ui` to generate assets files. This is a method of embedding resources in
-Go applications.
+```
 
-### Resources
-
-Chef cookbook
-https://supermarket.chef.io/cookbooks/dkron
-
-Python Client Library
-https://github.com/oldmantaiter/pydkron
-
-Ruby client
-https://github.com/jobandtalent/dkron-rb
-
-PHP client
-https://github.com/gromo/dkron-php-adapter
-
-Terraform provider
-https://github.com/bozerkins/terraform-provider-dkron
-
-Manage and run jobs in Dkron from your django project
-https://github.com/surface-security/django-dkron
-
-## Contributors
-
-<a href="https://github.com/distribworks/dkron/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=distribworks/dkron" />
-</a>
-
-Made with [contrib.rocks](https://contrib.rocks).
-
-## Get in touch
-
-- Twitter: [@distribworks](https://twitter.com/distribworks)
-- Chat: https://gitter.im/distribworks/dkron
-- Email: victor at distrib.works
